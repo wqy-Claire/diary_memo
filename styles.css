@@ -477,7 +477,8 @@ body {
   white-space: pre-wrap;
 }
 
-.persona-row { display: flex; gap: 10px; margin-top: 12px; }
+.persona-row { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.persona-item { display: inline-flex; align-items: center; gap: 6px; }
 .pill {
   display: inline-flex;
   align-items: center;
@@ -495,14 +496,31 @@ body {
   border-color: rgba(255, 210, 120, 0.38);
   background: rgba(255, 210, 120, 0.14);
 }
+.icon-btn {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: rgba(245,247,255,0.88);
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  cursor: pointer;
+  line-height: 1;
+}
+.icon-btn:hover { background: rgba(255,255,255,0.12); }
 .persona-config {
   margin-top: 10px;
   display: grid;
   gap: 8px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(10,14,20,0.30);
 }
 .persona-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
 }
 
 .chat-log {

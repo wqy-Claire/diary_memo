@@ -96,25 +96,37 @@
               <div class="panel-sub">妈妈 / 朋友 / 教练（各自独立对话、模型、Prompt）</div>
 
               <div class="persona-row">
-                <label class="pill">
-                  <input type="radio" name="persona" value="mom" checked />
-                  <span>妈妈</span>
-                </label>
-                <label class="pill">
-                  <input type="radio" name="persona" value="friend" />
-                  <span>朋友</span>
-                </label>
-                <label class="pill">
-                  <input type="radio" name="persona" value="coach" />
-                  <span>教练</span>
-                </label>
+                <div class="persona-item">
+                  <label class="pill">
+                    <input type="radio" name="persona" value="mom" checked />
+                    <span class="persona-label" data-persona-label="mom">妈妈</span>
+                  </label>
+                  <button class="icon-btn" type="button" data-edit-persona="mom" title="编辑妈妈配置">✎</button>
+                </div>
+                <div class="persona-item">
+                  <label class="pill">
+                    <input type="radio" name="persona" value="friend" />
+                    <span class="persona-label" data-persona-label="friend">朋友</span>
+                  </label>
+                  <button class="icon-btn" type="button" data-edit-persona="friend" title="编辑朋友配置">✎</button>
+                </div>
+                <div class="persona-item">
+                  <label class="pill">
+                    <input type="radio" name="persona" value="coach" />
+                    <span class="persona-label" data-persona-label="coach">教练</span>
+                  </label>
+                  <button class="icon-btn" type="button" data-edit-persona="coach" title="编辑教练配置">✎</button>
+                </div>
               </div>
-              <div class="persona-config">
+              <div id="personaConfigPanel" class="persona-config" hidden>
+                <div class="field-label">当前角色显示名（会同步顶部标签）</div>
+                <input id="personaNameInput" class="chat-input" type="text" placeholder="例如：妈妈1" />
                 <div class="field-label">当前角色模型名（可改）</div>
                 <input id="personaModelInput" class="chat-input" type="text" placeholder="例如：hunyuan-lite / deepseek-chat" />
                 <div class="field-label">当前角色 Prompt（可改）</div>
                 <textarea id="personaPromptInput" class="modal-textarea" rows="4" placeholder="给这个角色的系统提示词"></textarea>
                 <div class="persona-actions">
+                  <button id="cancelPersonaConfigBtn" class="btn" type="button">取消</button>
                   <button id="savePersonaConfigBtn" class="btn">保存角色配置</button>
                 </div>
               </div>

@@ -317,9 +317,12 @@ const els = {
   chatLog: document.getElementById("chatLog"),
   chatInput: document.getElementById("chatInput"),
   chatSendBtn: document.getElementById("chatSendBtn"),
+  personaConfigPanel: document.getElementById("personaConfigPanel"),
+  personaNameInput: document.getElementById("personaNameInput"),
   personaModelInput: document.getElementById("personaModelInput"),
   personaPromptInput: document.getElementById("personaPromptInput"),
   savePersonaConfigBtn: document.getElementById("savePersonaConfigBtn"),
+  cancelPersonaConfigBtn: document.getElementById("cancelPersonaConfigBtn"),
   editModal: document.getElementById("editModal"),
   editTextarea: document.getElementById("editTextarea"),
   deleteBtn: document.getElementById("deleteBtn"),
@@ -409,6 +412,31 @@ function ensurePersonaState() {
   }
 }
 
+function personaDisplayName(persona) {
+  return state.personaConfig[persona]?.name || PERSONA_DEFAULTS[persona]?.name || persona;
+}
+
+function renderPersonaLabels() {
+  for (const el of Array.from(document.querySelectorAll("[data-persona-label]"))) {
+    const p = el.getAttribute("data-persona-label") || "";
+    if (!p) continue;
+    el.textContent = personaDisplayName(p);
+  }
+}
+
+function openPersonaConfigEditor(persona) {
+  const input = document.querySelector(`input[name="persona"][value="${persona}"]`);
+  if (input) input.checked = true;
+  state.activePersona = persona;
+  renderChat();
+  renderPersonaConfigEditor();
+  if (els.personaConfigPanel) els.personaConfigPanel.hidden = false;
+}
+
+function closePersonaConfigEditor() {
+  if (els.personaConfigPanel) els.personaConfigPanel.hidden = true;
+}
+
 function currentPersonaChat() {
   const p = currentPersona();
   if (!Array.isArray(state.chatByPersona[p])) state.chatByPersona[p] = [];
@@ -418,6 +446,7 @@ function currentPersonaChat() {
 function renderPersonaConfigEditor() {
   const p = currentPersona();
   const cfg = state.personaConfig[p] || PERSONA_DEFAULTS[p];
+  if (els.personaNameInput) els.personaNameInput.value = cfg.name || "";
   if (els.personaModelInput) els.personaModelInput.value = cfg.model || "";
   if (els.personaPromptInput) els.personaPromptInput.value = cfg.prompt || "";
 }
@@ -446,6 +475,7 @@ function setRoute(route) {
   if (route === "list") renderList();
   if (route === "summary") {
     renderSummary();
+    renderPersonaLabels();
     renderPersonaConfigEditor();
   }
   if (route === "record") updateRecordComposerDock();
@@ -859,18 +889,41 @@ els.chatInput.addEventListener("keydown", (e) => {
 });
 for (const p of Array.from(document.querySelectorAll('input[name="persona"]'))) {
   p.addEventListener("change", () => {
-    renderPersonaConfigEditor();
     renderChat();
+    if (!els.personaConfigPanel?.hidden) renderPersonaConfigEditor();
+  });
+}
+for (const btn of Array.from(document.querySelectorAll("[data-edit-persona]"))) {
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
+    const p = btn.getAttribute("data-edit-persona");
+    if (!p) return;
+    openPersonaConfigEditor(p);
+  });
+}
+for (const label of Array.from(document.querySelectorAll(".pill"))) {
+  label.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    const input = label.querySelector('input[name="persona"]');
+    const p = input?.value;
+    if (!p) return;
+    openPersonaConfigEditor(p);
   });
 }
 els.savePersonaConfigBtn?.addEventListener("click", () => {
   const p = currentPersona();
   state.personaConfig[p] = {
     ...(state.personaConfig[p] || PERSONA_DEFAULTS[p]),
+    name: String(els.personaNameInput?.value || "").trim() || PERSONA_DEFAULTS[p].name,
     model: String(els.personaModelInput?.value || "").trim(),
     prompt: String(els.personaPromptInput?.value || "").trim(),
   };
+  renderPersonaLabels();
   persist();
+  closePersonaConfigEditor();
+});
+els.cancelPersonaConfigBtn?.addEventListener("click", () => {
+  closePersonaConfigEditor();
 });
 
 els.editModal.addEventListener("click", (e) => {
@@ -902,6 +955,8 @@ els.deleteBtn.addEventListener("click", () => {
 // 初始渲染
 async function boot() {
   setUserLabel();
+  renderPersonaLabels();
+  closePersonaConfigEditor();
   renderPalette();
   setRoute("record");
   updateRecordComposerDock();
@@ -919,12 +974,14 @@ els.createBtn?.addEventListener("click", async () => {
     state.chatByPersona = payload.chatByPersona ?? { mom: payload.chat ?? [] };
     state.personaConfig = payload.personaConfig ?? {};
     ensurePersonaState();
+    renderPersonaLabels();
     setUserLabel();
     hideLogin();
     renderPalette();
     renderCanvas();
     renderList();
     renderSummary();
+    closePersonaConfigEditor();
     renderPersonaConfigEditor();
     renderChat();
     const momChat = state.chatByPersona.mom;
@@ -949,12 +1006,14 @@ els.loginBtn?.addEventListener("click", async () => {
     state.chatByPersona = payload.chatByPersona ?? { mom: payload.chat ?? [] };
     state.personaConfig = payload.personaConfig ?? {};
     ensurePersonaState();
+    renderPersonaLabels();
     setUserLabel();
     hideLogin();
     renderPalette();
     renderCanvas();
     renderList();
     renderSummary();
+    closePersonaConfigEditor();
     renderPersonaConfigEditor();
     renderChat();
     const momChat = state.chatByPersona.mom;
@@ -976,6 +1035,8 @@ els.logoutBtn?.addEventListener("click", () => {
   state.activePersona = "mom";
   state.chatByPersona = {};
   state.personaConfig = {};
+  renderPersonaLabels();
+  closePersonaConfigEditor();
   setUserLabel();
   showLogin();
   els.chatLog.innerHTML = "";
