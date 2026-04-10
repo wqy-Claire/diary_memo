@@ -153,6 +153,7 @@ body {
   align-items: start;
   gap: 18px;
   padding: 22px 18px 10px;
+  min-height: 320px;
   max-width: 1150px;
   margin: 0 auto;
 }
@@ -166,7 +167,9 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.10);
   backdrop-filter: blur(14px);
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28);
-  transition: transform 220ms ease, margin-top 220ms ease;
+  transform: translate3d(0, var(--composer-offset, 0), 0);
+  will-change: transform;
+  transition: transform 320ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 220ms ease;
 }
 .composer-head{
   display:flex;
@@ -197,17 +200,12 @@ body {
 .composer-hint { margin-top: 10px; font-size: 12px; color: rgba(245, 247, 255, 0.62); }
 
 /* 记录页：输入气泡“未点击居中，点击后置顶” */
-.page-record.idle .record-center {
-  min-height: 320px;
-  padding-top: 0;
-}
 .page-record.idle .composer {
-  margin-top: calc(22vh - 20px);
-  transform: translateY(0);
+  --composer-offset: clamp(48px, 14vh, 180px);
 }
 .page-record.docked .composer {
-  margin-top: 18px;
-  transform: translateY(0);
+  --composer-offset: 0px;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.22);
 }
 .palette { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .palette-inline{ grid-template-columns: repeat(8, 1fr); gap: 8px; }

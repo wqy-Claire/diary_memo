@@ -1,10 +1,10 @@
 """
 server.py
 
-本地开发用：静态文件 + DeepSeek 代理接口（/api/chat）
+本地开发用：静态文件 + AI 代理接口（/api/chat）
 
 为什么要用本地代理？
-- 不把 DeepSeek API Key 暴露在前端（否则任何人打开网页都能看到 key）
+- 不把模型 API Key 暴露在前端（否则任何人打开网页都能看到 key）
 - 前端只调用同源 /api/chat
 
 用法：
@@ -39,8 +39,22 @@ if not HOST:
     HOST = "0.0.0.0" if os.environ.get("PORT", "").strip() else "127.0.0.1"
 AUTO_FALLBACK = os.environ.get("DIARY_AUTO_FALLBACK", "0").strip() in ("1", "true", "True")
 MAX_PORT_TRIES = 20
-DEEPSEEK_BASE = os.environ.get("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
-DEEPSEEK_MODEL = os.environ.get("DEEPSEEK_MODEL", "deepseek-chat")
+
+
+def _provider_info() -> tuple[str, str, str, str]:
+    provider = os.environ.get("AI_PROVIDER", "deepseek").strip().lower() or "deepseek"
+    if provider == "hunyuan":
+        name = "腾讯混元"
+        api_key = (os.environ.get("HUNYUAN_API_KEY") or os.environ.get("AI_API_KEY") or "").strip()
+        base_url = (os.environ.get("HUNYUAN_BASE_URL") or os.environ.get("AI_BASE_URL") or "https://api.hunyuan.cloud.tencent.com/v1").strip()
+        model = (os.environ.get("HUNYUAN_MODEL") or os.environ.get("AI_MODEL") or "hunyuan-lite").strip()
+    else:
+        provider = "deepseek"
+        name = "DeepSeek"
+        api_key = (os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("AI_API_KEY") or "").strip()
+        base_url = (os.environ.get("DEEPSEEK_BASE_URL") or os.environ.get("AI_BASE_URL") or "https://api.deepseek.com").strip()
+        model = (os.environ.get("DEEPSEEK_MODEL") or os.environ.get("AI_MODEL") or "deepseek-chat").strip()
+    return provider, name, api_key, base_url.rstrip("/"), model
 
 
 def _read_json(handler: SimpleHTTPRequestHandler) -> dict:
@@ -61,7 +75,7 @@ def _send_json(handler: SimpleHTTPRequestHandler, obj: dict, status: int = 200) 
     handler.wfile.write(body)
 
 
-def _deepseek_chat(api_key: str, payload: dict) -> str:
+def _ai_chat(provider_name: str, api_key: str, base_url: str, model: str, payload: dict) -> str:
     persona = str(payload.get("persona") or "mom")
     user_text = str(payload.get("userText") or "").strip()
     messages = payload.get("messages") or []
@@ -89,7 +103,7 @@ def _deepseek_chat(api_key: str, payload: dict) -> str:
     sys += f"\n（背景信息：用户近30天关键词：{kw}；关键问题片段：{qs}）"
 
     ds_messages = [{"role": "system", "content": sys}]
-    # 将前端记忆转成 DeepSeek messages
+    # 将前端记忆转成通用 chat messages
     for m in messages:
         role = m.get("role")
         content = str(m.get("content") or "")
@@ -101,7 +115,7 @@ def _deepseek_chat(api_key: str, payload: dict) -> str:
     ds_messages.append({"role": "user", "content": user_text})
 
     req_body = {
-        "model": DEEPSEEK_MODEL,
+        "model": model,
         "messages": ds_messages,
         "temperature": 0.7,
         "max_tokens": 800,
@@ -109,7 +123,7 @@ def _deepseek_chat(api_key: str, payload: dict) -> str:
     }
 
     req = Request(
-        f"{DEEPSEEK_BASE}/chat/completions",
+        f"{base_url}/chat/completions",
         data=json.dumps(req_body).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
@@ -133,14 +147,14 @@ def _deepseek_chat(api_key: str, payload: dict) -> str:
                 msg = err_obj.strip()
         except Exception:
             pass
-        err_line = f"DeepSeek HTTP {e.code}: {msg}"
-        if e.code == 402:
+        err_line = f"{provider_name} HTTP {e.code}: {msg}"
+        if provider_name == "DeepSeek" and e.code == 402:
             err_line += " | 需在开放平台充值或检查可用额度：https://platform.deepseek.com"
         elif e.code == 401:
             err_line += " | 请检查 API Key 是否正确、是否已重新生成"
         raise RuntimeError(err_line) from e
     except URLError as e:
-        raise RuntimeError(f"无法连接 DeepSeek：{e.reason!s}") from e
+        raise RuntimeError(f"无法连接{provider_name}：{e.reason!s}") from e
 
     return (data.get("choices") or [{}])[0].get("message", {}).get("content", "") or ""
 
@@ -148,12 +162,12 @@ def _deepseek_chat(api_key: str, payload: dict) -> str:
 class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         if self.path == "/api/chat":
-            api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+            _provider, provider_name, api_key, base_url, model = _provider_info()
             if not api_key:
-                return _send_json(self, {"error": "missing DEEPSEEK_API_KEY"}, status=400)
+                return _send_json(self, {"error": f"missing API key for {provider_name}"}, status=400)
             payload = _read_json(self)
             try:
-                text = _deepseek_chat(api_key, payload).strip()
+                text = _ai_chat(provider_name, api_key, base_url, model, payload).strip()
                 return _send_json(self, {"text": text})
             except Exception as e:
                 print(f"[api/chat] {type(e).__name__}: {e}", file=sys.stderr)
@@ -190,15 +204,15 @@ def main() -> None:
                 f"端口 {port} 已被占用。为保证本地数据和网址固定，本次不自动换端口。"
                 "请先结束占用进程后重启；或临时设置 DIARY_PORT=新端口。"
             ) from e
-    key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+    _provider, provider_name, key, _base_url, model = _provider_info()
     if not key:
-        print("警告: 未设置 DEEPSEEK_API_KEY，/api/chat 将返回 400。", file=sys.stderr)
+        print(f"警告: 未设置 {provider_name} 的 API Key，/api/chat 将返回 400。", file=sys.stderr)
     elif key in ("sk-你的真实密钥", "sk-xxxx", "你的deepseek_key"):
-        print("警告: DEEPSEEK_API_KEY 像是占位符，请换成平台里的 sk- 密钥。", file=sys.stderr)
+        print(f"警告: {provider_name} API Key 像是占位符，请换成平台里的真实密钥。", file=sys.stderr)
     shown_host = "127.0.0.1" if HOST == "0.0.0.0" else HOST
     print(f"Serving on http://{shown_host}:{port}")
     print("请用上面这个地址打开网页（不要用旧端口，否则 /api/chat 会连错）。")
-    print("API: POST /api/chat (requires DEEPSEEK_API_KEY，需填平台真实 sk- 密钥，不要用占位文字)")
+    print(f"API: POST /api/chat (provider={provider_name}, model={model})")
     server.serve_forever()
 
 

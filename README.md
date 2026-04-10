@@ -31,6 +31,31 @@ kill <PID>
 - **HTTP 402 Payment Required**：账号需要充值/有可用额度才可调用。
 - **HTTP 401 Unauthorized**：API Key 无效或已作废（建议重新生成新 key）。
 
+## 切换到别的 AI（例如腾讯混元）
+
+这个项目的 `/api/chat` 现在支持按环境变量切换提供商。
+
+### 继续用 DeepSeek
+
+```bash
+export AI_PROVIDER="deepseek"
+export DEEPSEEK_API_KEY="sk-xxxxxxxxxxxxxxxx"
+python server.py
+```
+
+### 改用腾讯混元
+
+```bash
+export AI_PROVIDER="hunyuan"
+export HUNYUAN_API_KEY="你的混元 API Key"
+export HUNYUAN_MODEL="hunyuan-lite"
+python server.py
+```
+
+腾讯混元目前提供 OpenAI 兼容接口，可用 `https://api.hunyuan.cloud.tencent.com/v1/chat/completions` 这类接口形式接入，适合直接复用本项目当前代理结构。[腾讯云官方说明](https://cloud.tencent.cn/document/product/1729/111007)
+
+关于费用，腾讯混元目前官方文档显示新开通常有一定免费额度，且 `hunyuan-lite` 可免费使用；具体额度和计费以腾讯云当前页面为准。[腾讯云计费说明](https://www.tencentcloud.com/zh/document/product/1284/77186)
+
 ## 让别人也能用（公网部署）
 
 ### Render 一键部署（推荐）
