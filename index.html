@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>网页手帐（本地）</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-dot"></div>
+          <div class="brand-title">网页手帐</div>
+          <div class="brand-sub">本地存储 · 多界面 · 清爽</div>
+        </div>
+
+        <div class="top-actions">
+          <nav class="tabs" aria-label="页面切换">
+            <button class="tab" data-route="record" aria-current="page">记录</button>
+            <button class="tab" data-route="list">我的记录</button>
+            <button class="tab" data-route="summary">总结</button>
+          </nav>
+          <div class="userbox">
+            <span id="userLabel" class="userlabel" title="当前用户">未登录</span>
+            <button id="logoutBtn" class="btn small" type="button" hidden>退出</button>
+          </div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section id="page-record" class="page page-record" hidden>
+          <div class="bg-notes" aria-hidden="true"></div>
+
+          <div class="record-center">
+            <div class="composer">
+              <div class="composer-head">
+                <div class="composer-title">写下此刻的想法…</div>
+                <div class="composer-tools" aria-label="快捷工具">
+                  <div id="colorPalette" class="palette palette-inline" role="listbox" aria-label="便签颜色选择"></div>
+                  <label class="switch switch-inline" title="显示对齐辅助线">
+                    <input id="snapToggle" type="checkbox" />
+                    <span class="switch-ui"></span>
+                  </label>
+                </div>
+              </div>
+              <div class="composer-row">
+                <input id="quickInput" class="quick-input" type="text" placeholder="写下此刻的想法...（Enter 快速保存）" />
+                <button id="saveBtn" class="btn primary">保存</button>
+              </div>
+              <div class="composer-hint">
+                Enter 保存；拖拽便签可自由摆放；双击便签可编辑；右侧上方可切换颜色。
+              </div>
+            </div>
+          </div>
+
+          <div id="canvas" class="note-canvas" aria-label="便签画布"></div>
+        </section>
+
+        <section id="page-list" class="page page-list" hidden>
+          <div class="list-header">
+            <div class="list-title">我的记录</div>
+            <div class="list-actions">
+              <input id="dateFilter" class="date-filter" type="date" />
+              <button id="clearFilterBtn" class="btn">清除筛选</button>
+              <button id="addTodayBtn" class="btn primary">添加到今天</button>
+            </div>
+          </div>
+          <div id="listGrid" class="list-grid" aria-label="按日期排列的记录"></div>
+        </section>
+
+        <section id="page-summary" class="page page-summary" hidden>
+          <div class="summary-layout">
+            <div class="summary-panel">
+              <div class="panel-title">最近 30 天总结</div>
+              <div class="panel-sub">关键词 · 关键问题 · 你最在意的事</div>
+
+              <div class="summary-block">
+                <div class="block-title">关键词</div>
+                <div id="kwChips" class="chips" aria-label="关键词"></div>
+              </div>
+
+              <div class="summary-block">
+                <div class="block-title">关键问题（从记录里提取）</div>
+                <div id="questionList" class="question-list"></div>
+              </div>
+
+              <div class="summary-block">
+                <div class="block-title">建议（不是黑盒）</div>
+                <div id="adviceBox" class="advice"></div>
+              </div>
+            </div>
+
+            <div class="chat-panel">
+              <div class="panel-title">陪你一起想办法</div>
+              <div class="panel-sub">像妈妈 / 像朋友（离线规则版）</div>
+
+              <div class="persona-row">
+                <label class="pill">
+                  <input type="radio" name="persona" value="mom" checked />
+                  <span>妈妈</span>
+                </label>
+                <label class="pill">
+                  <input type="radio" name="persona" value="friend" />
+                  <span>朋友</span>
+                </label>
+                <label class="pill">
+                  <input type="radio" name="persona" value="coach" />
+                  <span>教练</span>
+                </label>
+              </div>
+
+              <div id="chatLog" class="chat-log" aria-label="对话记录"></div>
+
+              <div class="chat-input-row">
+                <input id="chatInput" class="chat-input" type="text" placeholder="把你的烦恼/问题发给我…" />
+                <button id="chatSendBtn" class="btn primary">发送</button>
+              </div>
+              <div class="composer-hint">提示：你可以直接问“我最近在纠结什么？”或“给我一个三步计划”。</div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <div id="editModal" class="modal" hidden>
+        <div class="modal-backdrop" data-close="1"></div>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-label="编辑便签">
+          <div class="modal-title">编辑记录</div>
+          <div class="modal-sub">也可以在这里改颜色</div>
+          <div class="modal-palette-row">
+            <div id="editColorPalette" class="palette modal-palette" role="listbox" aria-label="编辑颜色选择"></div>
+          </div>
+          <textarea id="editTextarea" class="modal-textarea" rows="6"></textarea>
+          <div class="modal-actions">
+            <button id="deleteBtn" class="btn danger">删除</button>
+            <div class="spacer"></div>
+            <button class="btn" data-close="1">取消</button>
+            <button id="saveEditBtn" class="btn primary">保存</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="loginModal" class="modal" hidden>
+        <div class="modal-backdrop"></div>
+        <div class="modal-card" role="dialog" aria-modal="true" aria-label="登录">
+          <div class="modal-title">登录</div>
+          <div class="modal-sub">本地加密存储：只有输入正确密码才能解密看到内容</div>
+          <div class="login-grid">
+            <label class="field">
+              <div class="field-label">用户名</div>
+              <input id="loginUser" class="modal-input" type="text" placeholder="随便取（例如：wqy）" />
+            </label>
+            <label class="field">
+              <div class="field-label">密码</div>
+              <input id="loginPass" class="modal-input" type="password" placeholder="自己记住，忘了无法找回" />
+            </label>
+          </div>
+          <div id="loginMsg" class="login-msg"></div>
+          <div class="modal-actions">
+            <button id="createBtn" class="btn">创建账号</button>
+            <div class="spacer"></div>
+            <button id="loginBtn" class="btn primary">登录</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
+
