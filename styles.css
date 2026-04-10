@@ -495,6 +495,15 @@ body {
   border-color: rgba(255, 210, 120, 0.38);
   background: rgba(255, 210, 120, 0.14);
 }
+.persona-config {
+  margin-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+.persona-actions {
+  display: flex;
+  justify-content: flex-end;
+}
 
 .chat-log {
   margin-top: 12px;

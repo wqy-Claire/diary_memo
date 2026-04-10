@@ -93,7 +93,7 @@
 
             <div class="chat-panel">
               <div class="panel-title">陪你一起想办法</div>
-              <div class="panel-sub">像妈妈 / 像朋友（离线规则版）</div>
+              <div class="panel-sub">妈妈 / 朋友 / 教练（各自独立对话、模型、Prompt）</div>
 
               <div class="persona-row">
                 <label class="pill">
@@ -108,6 +108,15 @@
                   <input type="radio" name="persona" value="coach" />
                   <span>教练</span>
                 </label>
+              </div>
+              <div class="persona-config">
+                <div class="field-label">当前角色模型名（可改）</div>
+                <input id="personaModelInput" class="chat-input" type="text" placeholder="例如：hunyuan-lite / deepseek-chat" />
+                <div class="field-label">当前角色 Prompt（可改）</div>
+                <textarea id="personaPromptInput" class="modal-textarea" rows="4" placeholder="给这个角色的系统提示词"></textarea>
+                <div class="persona-actions">
+                  <button id="savePersonaConfigBtn" class="btn">保存角色配置</button>
+                </div>
               </div>
 
               <div id="chatLog" class="chat-log" aria-label="对话记录"></div>

@@ -80,27 +80,33 @@ def _ai_chat(provider_name: str, api_key: str, base_url: str, model: str, payloa
     user_text = str(payload.get("userText") or "").strip()
     messages = payload.get("messages") or []
     summary = payload.get("summary") or {}
+    model_override = str(payload.get("model") or "").strip()
+    model_name = model_override or model
 
     kw = summary.get("keywords") or []
     qs = summary.get("questions") or []
 
-    if persona == "mom":
-        sys = (
-            "你是一个温柔、可靠、会安抚情绪但不溺爱的妈妈。"
-            "你的目标是帮用户把问题变成可执行的下一步，并给出清晰建议。"
-        )
-    elif persona == "friend":
-        sys = (
-            "你是一个真诚的朋友，语气轻松但有边界。"
-            "你会用二选一、共情、以及小行动建议帮助用户前进。"
-        )
+    custom_sys = str(payload.get("systemPrompt") or "").strip()
+    if custom_sys:
+        sys = custom_sys
     else:
-        sys = (
-            "你是一个高效的教练，重视结构化拆解。"
-            "你会要求用户澄清目标/约束，并给出三步计划。"
-        )
+        if persona == "mom":
+            sys = (
+                "你是一个温柔、可靠、会安抚情绪但不溺爱的妈妈。"
+                "你的目标是帮用户把问题变成可执行的下一步，并给出清晰建议。"
+            )
+        elif persona == "friend":
+            sys = (
+                "你是一个真诚的朋友，语气轻松但有边界。"
+                "你会用二选一、共情、以及小行动建议帮助用户前进。"
+            )
+        else:
+            sys = (
+                "你是一个高效的教练，重视结构化拆解。"
+                "你会要求用户澄清目标/约束，并给出三步计划。"
+            )
 
-    sys += f"\n（背景信息：用户近30天关键词：{kw}；关键问题片段：{qs}）"
+        sys += f"\n（背景信息：用户近30天关键词：{kw}；关键问题片段：{qs}）"
 
     ds_messages = [{"role": "system", "content": sys}]
     # 将前端记忆转成通用 chat messages
@@ -115,7 +121,7 @@ def _ai_chat(provider_name: str, api_key: str, base_url: str, model: str, payloa
     ds_messages.append({"role": "user", "content": user_text})
 
     req_body = {
-        "model": model,
+        "model": model_name,
         "messages": ds_messages,
         "temperature": 0.7,
         "max_tokens": 800,

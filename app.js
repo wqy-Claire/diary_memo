@@ -114,7 +114,7 @@ function vaultKey(username) {
 
 async function vaultLoad(username, key) {
   const raw = localStorage.getItem(vaultKey(username));
-  if (!raw) return { notes: [], ui: { color: "yellow", snap: false }, chat: [] };
+  if (!raw) return { notes: [], ui: { color: "yellow", snap: false }, chatByPersona: {}, personaConfig: {} };
   const v = JSON.parse(raw);
   return decryptJson(key, v.iv, v.ct);
 }
@@ -234,6 +234,24 @@ function personaPrefix(persona) {
   return "教练版：";
 }
 
+const PERSONA_DEFAULTS = {
+  mom: {
+    name: "妈妈",
+    model: "",
+    prompt: "你是一个温柔、可靠、会安抚情绪但不溺爱的妈妈。你的目标是帮用户把问题变成可执行的下一步，并给出清晰建议。",
+  },
+  friend: {
+    name: "朋友",
+    model: "",
+    prompt: "你是一个真诚的朋友，语气轻松但有边界。你会用二选一、共情、以及小行动建议帮助用户前进。",
+  },
+  coach: {
+    name: "教练",
+    model: "",
+    prompt: "你是一个高效的教练，重视结构化拆解。你会要求用户澄清目标/约束，并给出三步计划。",
+  },
+};
+
 function replyWithPersona(persona, userText, ctx) {
   const t = userText.trim();
   const kws = ctx.keywords.map((x) => x.k).slice(0, 6);
@@ -268,7 +286,9 @@ const state = {
   route: "record",
   notes: [],
   ui: { color: "yellow", snap: false },
-  chat: [],
+  activePersona: "mom",
+  chatByPersona: {},
+  personaConfig: {},
   editingId: null,
   editingColor: "yellow",
   username: null,
@@ -297,6 +317,9 @@ const els = {
   chatLog: document.getElementById("chatLog"),
   chatInput: document.getElementById("chatInput"),
   chatSendBtn: document.getElementById("chatSendBtn"),
+  personaModelInput: document.getElementById("personaModelInput"),
+  personaPromptInput: document.getElementById("personaPromptInput"),
+  savePersonaConfigBtn: document.getElementById("savePersonaConfigBtn"),
   editModal: document.getElementById("editModal"),
   editTextarea: document.getElementById("editTextarea"),
   deleteBtn: document.getElementById("deleteBtn"),
@@ -371,7 +394,32 @@ async function login(username, password) {
 
 async function persist() {
   if (!state.username || !state.cryptoKey) return;
-  await vaultSave(state.username, state.cryptoKey, { notes: state.notes, ui: state.ui, chat: state.chat });
+  await vaultSave(state.username, state.cryptoKey, {
+    notes: state.notes,
+    ui: state.ui,
+    chatByPersona: state.chatByPersona,
+    personaConfig: state.personaConfig,
+  });
+}
+
+function ensurePersonaState() {
+  for (const p of Object.keys(PERSONA_DEFAULTS)) {
+    if (!Array.isArray(state.chatByPersona[p])) state.chatByPersona[p] = [];
+    state.personaConfig[p] = { ...PERSONA_DEFAULTS[p], ...(state.personaConfig[p] || {}) };
+  }
+}
+
+function currentPersonaChat() {
+  const p = currentPersona();
+  if (!Array.isArray(state.chatByPersona[p])) state.chatByPersona[p] = [];
+  return state.chatByPersona[p];
+}
+
+function renderPersonaConfigEditor() {
+  const p = currentPersona();
+  const cfg = state.personaConfig[p] || PERSONA_DEFAULTS[p];
+  if (els.personaModelInput) els.personaModelInput.value = cfg.model || "";
+  if (els.personaPromptInput) els.personaPromptInput.value = cfg.prompt || "";
 }
 
 function updateRecordComposerDock() {
@@ -396,7 +444,10 @@ function setRoute(route) {
   }
   if (route === "record") renderCanvas();
   if (route === "list") renderList();
-  if (route === "summary") renderSummary();
+  if (route === "summary") {
+    renderSummary();
+    renderPersonaConfigEditor();
+  }
   if (route === "record") updateRecordComposerDock();
 }
 
@@ -674,23 +725,27 @@ function appendChat(role, text) {
 
 function renderChat() {
   els.chatLog.innerHTML = "";
-  for (const m of state.chat) {
+  for (const m of currentPersonaChat()) {
     appendChat(m.role === "user" ? "me" : "bot", m.content);
   }
 }
 
 function currentPersona() {
   const el = document.querySelector('input[name="persona"]:checked');
-  return el ? el.value : "mom";
+  state.activePersona = el ? el.value : "mom";
+  return state.activePersona;
 }
 
 async function tryDeepSeekReply(userText) {
   // 不把 API Key 放前端：只请求同源 /api/chat（需要用 server.py 启动）
   const persona = currentPersona();
+  const cfg = state.personaConfig[persona] || PERSONA_DEFAULTS[persona];
   const ctx = state._summaryCtx ?? { keywords: [], questions: [] };
-  const messages = state.chat.slice(-20); // 记忆：最近 20 轮
+  const messages = currentPersonaChat().slice(-20); // 各 persona 独立记忆
   const payload = {
     persona,
+    model: String(cfg.model || "").trim(),
+    systemPrompt: String(cfg.prompt || "").trim(),
     userText,
     messages,
     summary: {
@@ -724,7 +779,9 @@ function sendChat() {
   els.chatInput.value = "";
 
   // 先写入“记忆”
-  state.chat.push({ role: "user", content: t, ts: now() });
+  const persona = currentPersona();
+  const chat = currentPersonaChat();
+  chat.push({ role: "user", content: t, ts: now() });
   persist();
   appendChat("me", t);
 
@@ -732,15 +789,15 @@ function sendChat() {
   (async () => {
     try {
       const rep = await tryDeepSeekReply(t);
-      state.chat.push({ role: "assistant", content: rep, ts: now() });
+      chat.push({ role: "assistant", content: rep, ts: now() });
       persist();
       appendChat("bot", rep);
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
       const ctx = state._summaryCtx ?? { keywords: [], questions: [] };
       const rep = replyWithPersona(currentPersona(), t, ctx);
-      const combined = `【DeepSeek 未连通】${errMsg}\n\n—— 以下为本地离线参考 ——\n\n${rep}`;
-      state.chat.push({ role: "assistant", content: combined, ts: now() });
+      const combined = `【AI 未连通】${errMsg}\n\n—— 以下为本地离线参考 ——\n\n${rep}`;
+      chat.push({ role: "assistant", content: combined, ts: now() });
       persist();
       appendChat("bot", combined);
     }
@@ -800,6 +857,21 @@ els.chatInput.addEventListener("keydown", (e) => {
     sendChat();
   }
 });
+for (const p of Array.from(document.querySelectorAll('input[name="persona"]'))) {
+  p.addEventListener("change", () => {
+    renderPersonaConfigEditor();
+    renderChat();
+  });
+}
+els.savePersonaConfigBtn?.addEventListener("click", () => {
+  const p = currentPersona();
+  state.personaConfig[p] = {
+    ...(state.personaConfig[p] || PERSONA_DEFAULTS[p]),
+    model: String(els.personaModelInput?.value || "").trim(),
+    prompt: String(els.personaPromptInput?.value || "").trim(),
+  };
+  persist();
+});
 
 els.editModal.addEventListener("click", (e) => {
   const t = e.target;
@@ -844,16 +916,20 @@ els.createBtn?.addEventListener("click", async () => {
     state.cryptoKey = key;
     state.notes = payload.notes ?? [];
     state.ui = payload.ui ?? { color: "yellow", snap: false };
-    state.chat = payload.chat ?? [];
+    state.chatByPersona = payload.chatByPersona ?? { mom: payload.chat ?? [] };
+    state.personaConfig = payload.personaConfig ?? {};
+    ensurePersonaState();
     setUserLabel();
     hideLogin();
     renderPalette();
     renderCanvas();
     renderList();
     renderSummary();
+    renderPersonaConfigEditor();
     renderChat();
-    if (state.chat.length === 0) {
-      state.chat.push({ role: "assistant", content: "妈妈版：欢迎回来。今天想先记一条，还是先复盘一下？", ts: now() });
+    const momChat = state.chatByPersona.mom;
+    if (momChat.length === 0) {
+      momChat.push({ role: "assistant", content: "妈妈版：欢迎回来。今天想先记一条，还是先复盘一下？", ts: now() });
       persist();
       renderChat();
     }
@@ -870,16 +946,20 @@ els.loginBtn?.addEventListener("click", async () => {
     state.cryptoKey = key;
     state.notes = payload.notes ?? [];
     state.ui = payload.ui ?? { color: "yellow", snap: false };
-    state.chat = payload.chat ?? [];
+    state.chatByPersona = payload.chatByPersona ?? { mom: payload.chat ?? [] };
+    state.personaConfig = payload.personaConfig ?? {};
+    ensurePersonaState();
     setUserLabel();
     hideLogin();
     renderPalette();
     renderCanvas();
     renderList();
     renderSummary();
+    renderPersonaConfigEditor();
     renderChat();
-    if (state.chat.length === 0) {
-      state.chat.push({ role: "assistant", content: "妈妈版：我在这儿。你想先记录，还是先复盘一下最近的关键词？", ts: now() });
+    const momChat = state.chatByPersona.mom;
+    if (momChat.length === 0) {
+      momChat.push({ role: "assistant", content: "妈妈版：我在这儿。你想先记录，还是先复盘一下最近的关键词？", ts: now() });
       persist();
       renderChat();
     }
@@ -893,7 +973,9 @@ els.logoutBtn?.addEventListener("click", () => {
   state.cryptoKey = null;
   state.notes = [];
   state.ui = { color: "yellow", snap: false };
-  state.chat = [];
+  state.activePersona = "mom";
+  state.chatByPersona = {};
+  state.personaConfig = {};
   setUserLabel();
   showLogin();
   els.chatLog.innerHTML = "";
