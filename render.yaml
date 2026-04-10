@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: diary-memo
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: ""
+    startCommand: python server.py
+    autoDeploy: true
+    envVars:
+      - key: DEEPSEEK_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: 3.12.3
+

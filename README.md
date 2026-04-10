@@ -33,6 +33,16 @@ kill <PID>
 
 ## 让别人也能用（公网部署）
 
+### Render 一键部署（推荐）
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/wqy-Claire/diary_memo)
+
+点击按钮后：
+
+1. 选择你的 Render 账号并确认创建服务（配置来自仓库中的 `render.yaml`）。
+2. 在环境变量里填写 `DEEPSEEK_API_KEY=sk-...`（不写就只能离线回复）。
+3. 等待部署完成，拿到 `https://xxx.onrender.com` 公网网址。
+
 要让别人通过一个公网网址访问，并且能用 DeepSeek，需要把 `server.py` 部署到云端，并在平台配置环境变量：
 
 - `DEEPSEEK_API_KEY`: 你的 DeepSeek key（只放在云端后台，不要放前端）
